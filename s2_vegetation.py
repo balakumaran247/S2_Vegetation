@@ -1,5 +1,5 @@
 import input_details
-from download_data import download_data
+from s2vegetation.download_data import download_data
 
 def main():
     username, password = input_details.username, input_details.password
