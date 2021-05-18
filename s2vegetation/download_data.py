@@ -1,6 +1,6 @@
 from sentinelsat import SentinelAPI
 import zipfile
-import os, sys
+import os, sys, shutil
 
 def check_login(username, password, latitude, longitude):
     
@@ -23,6 +23,7 @@ def check_login(username, password, latitude, longitude):
         print('\n')
     
     try:
+        
         api = SentinelAPI(username, 
                           password, 'https://scihub.copernicus.eu/dhus')
         footprint = f'POINT ({latitude} {longitude})'
@@ -30,12 +31,12 @@ def check_login(username, password, latitude, longitude):
                                   order_by='cloudcoverpercentage', 
                                   platformname='Sentinel-2', 
                                   processinglevel='Level-2A', 
-                                  cloudcoverpercentage=(0,10))
+                                  cloudcoverpercentage=(0,30))
         data_database = api.to_geodataframe(data_populate)
         return api, data_database
     except:
-        print('\n Incorrect Login Details\n Program Terminated')
-        sys.exit(1)
+        print('\n Incorrect Login Details.\n Program Terminated.')
+        sys.exit()
 
 def download_data (username, password, latitude, longitude):
     
@@ -44,17 +45,32 @@ def download_data (username, password, latitude, longitude):
     api, data_database = check_login(username, password, latitude, longitude)
     data_database_sorted = data_database.sort_values('cloudcoverpercentage', 
                                                  ascending=True).reset_index()
+    # clearing data directory contents before download
+    for filename in os.listdir(os.path.join('.', 'data')):
+        if filename != '.gitignore':
+            file_path = os.path.join('.','data',filename)
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
     
     for item in range(len(data_database_sorted)):
         try:
             print("\n Fetching " +data_database_sorted['index'].iloc[item]+ " from SciHub...\n")
             data_download = api.download(data_database_sorted['index'].iloc[item], 
                              directory_path=os.path.join('.', 'data'))
+            print("\ndownload complete!\n")
             break
         except:
             continue
-    print("\ndownload complete!\n")
-    zip = zipfile.ZipFile(os.path.join('.', 'data', 
-                                   data_download['title'] + '.zip'))
-    zip.extractall(os.path.join('.', 'data'))
+    
+    # extracting the downloaded file
+    try:
+        zip = zipfile.ZipFile(os.path.join('.', 'data', 
+                                           data_download['title'] + '.zip'))
+        zip.extractall(os.path.join('.', 'data'))
+    except:
+        print('\n Data could not be retrieved.\n Program Terminated.\n')
+        sys.exit()
     return data_download
+
